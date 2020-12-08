@@ -1,0 +1,20 @@
+The MIT license below governs all the originally created code for MNAT hosted in this repository.  The text of the license is below:
+
+~~~
+
+Copyright 2020 Akamai Technologies, Inc. and Jacob Holland
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+~~~
+
+Please note that this repository also contains some code copied from [jetconf](https://github.com/CZ-NIC/jetconf) that is licensed by its authors under the GPLv3.  That code is located under the cert_gen directory in server/local-test, and contains its separate license in the README.md in that directory:
+
+ * <server/local-test/cert_gen/>
+
+That code is used as a utility script for generating certificates, and is not in operation as part of the running code in any part of the MNAT implementation.  It's copied here as a convenience.
+

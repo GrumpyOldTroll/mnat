@@ -1,0 +1,17 @@
+diff --git a/jetconf/rest_server.py b/jetconf/rest_server.py
+index 66a0c79..be4fb15 100644
+--- a/jetconf/rest_server.py
++++ b/jetconf/rest_server.py
+@@ -89,9 +89,11 @@ class H2Protocol(asyncio.Protocol):
+                     self.conn.reset_stream(event.stream_id, error_code=H2ErrorCodes.PROTOCOL_ERROR)
+                 else:
+                     # Check if incoming data are not excessively large
++                    if len(event.data) > 0:
++                        self.conn.increment_flow_control_window(len(event.data))
+                     if (stream_data.data.tell() + len(event.data)) < (config.CFG.http["UPLOAD_SIZE_LIMIT"] * 1048576):
+                         stream_data.data.write(event.data)
+-                        self.conn.acknowledge_received_data(len(event.data), event.stream_id)
++                        #self.conn.acknowledge_received_data(len(event.data), event.stream_id)
+                     else:
+                         stream_data.data_overflow = True
+                         self.conn.reset_stream(event.stream_id, error_code=H2ErrorCodes.ENHANCE_YOUR_CALM)

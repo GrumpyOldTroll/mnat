@@ -1,0 +1,27 @@
+GLOBAL:
+    TIMEZONE: "GMT"
+    LOGFILE: "-"
+    PIDFILE: "/tmp/jetconf.pid"
+    PERSISTENT_CHANGES: false
+    LOG_LEVEL: "debug"
+    LOG_DBG_MODULES: ["nacm", "data"]
+    YANG_LIB_DIR: "src/yang-modules"
+    DATA_JSON_FILE: "src/data-mnat.json"
+    BACKEND_PACKAGE: "jetconf_mnat"
+
+HTTP_SERVER:
+    DOC_ROOT: "src/doc-root"
+    DOC_DEFAULT_NAME: "index.html"
+    API_ROOT: "/mnat-ds"
+    SERVER_NAME: "jetconf-h2"
+    SERVER_SSL_CERT: "local-test/server/server_localhost.crt"
+    SERVER_SSL_PRIVKEY: "local-test/server/server_localhost.key"
+    CA_CERT: "local-test/server/ca.pem"
+    DBG_DISABLE_CERT: true
+    #LISTEN_LOCALHOST_ONLY: true
+    #DISABLE_SSL: true
+
+NACM:
+    ENABLED: true
+    ALLOWED_USERS: []
+    #ALLOWED_USERS: ["jtest@example.com"]

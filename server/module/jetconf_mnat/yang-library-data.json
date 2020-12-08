@@ -1,0 +1,114 @@
+{
+  "ietf-yang-library:modules-state": {
+    "module-set-id": "e595da11ace92c0d881995fa7e56bbe86f1f48e9",
+    "module": [
+      {
+        "name": "ietf-datastores",
+        "revision": "2018-02-14",
+        "namespace": "urn:ietf:params:xml:ns:yang:ietf-datastores",
+        "conformance-type": "import",
+        "schema": "https://raw.githubusercontent.com/YangModels/yang/master/standard/ietf/RFC/ietf-datastores.yang"
+      },
+      {
+        "name": "ietf-inet-types",
+        "revision": "2013-07-15",
+        "namespace": "urn:ietf:params:xml:ns:yang:ietf-inet-types",
+        "conformance-type": "import",
+        "schema": "https://raw.githubusercontent.com/YangModels/yang/master/standard/ietf/RFC/ietf-inet-types.yang"
+      },
+      {
+        "name": "ietf-interfaces",
+        "revision": "2018-02-20",
+        "namespace": "urn:ietf:params:xml:ns:yang:ietf-interfaces",
+        "conformance-type": "import",
+        "schema": "https://raw.githubusercontent.com/YangModels/yang/master/standard/ietf/RFC/ietf-interfaces.yang"
+      },
+      {
+        "name": "ietf-ip",
+        "revision": "2018-02-22",
+        "namespace": "urn:ietf:params:xml:ns:yang:ietf-ip",
+        "conformance-type": "import",
+        "schema": "https://raw.githubusercontent.com/YangModels/yang/master/standard/ietf/RFC/ietf-ip.yang"
+      },
+      {
+        "name": "ietf-network-instance",
+        "revision": "2019-01-21",
+        "namespace": "urn:ietf:params:xml:ns:yang:ietf-network-instance",
+        "conformance-type": "import",
+        "schema": "https://raw.githubusercontent.com/YangModels/yang/master/standard/ietf/RFC/ietf-network-instance.yang"
+      },
+      {
+        "name": "ietf-routing-types",
+        "revision": "2017-12-04",
+        "namespace": "urn:ietf:params:xml:ns:yang:ietf-routing-types",
+        "conformance-type": "import",
+        "schema": "https://raw.githubusercontent.com/YangModels/yang/master/standard/ietf/RFC/ietf-routing-types.yang"
+      },
+      {
+        "name": "ietf-yang-patch",
+        "revision": "2017-02-22",
+        "namespace": "urn:ietf:params:xml:ns:yang:ietf-yang-patch",
+        "conformance-type": "import",
+        "schema": "https://raw.githubusercontent.com/YangModels/yang/master/standard/ietf/RFC/ietf-yang-patch.yang"
+      },
+      {
+        "name": "ietf-yang-schema-mount",
+        "revision": "2019-01-14",
+        "namespace": "urn:ietf:params:xml:ns:yang:ietf-yang-schema-mount",
+        "conformance-type": "import",
+        "schema": "https://raw.githubusercontent.com/YangModels/yang/master/standard/ietf/RFC/ietf-yang-schema-mount.yang"
+      },
+      {
+        "name": "ietf-yang-types",
+        "revision": "2013-07-15",
+        "namespace": "urn:ietf:params:xml:ns:yang:ietf-yang-types",
+        "conformance-type": "import",
+        "schema": "https://github.com/YangModels/yang/blob/master/standard/ietf/RFC/ietf-yang-types.yang"
+      },
+      {
+        "name": "ietf-mnat",
+        "revision": "2020-10-22",
+        "namespace": "urn:ietf:params:xml:ns:yang:ietf-mnat",
+        "conformance-type": "implement",
+        "schema": "https://raw.githubusercontent.com/YangModels/yang/master/standard/ietf/RFC/ietf-mnat.yang"
+      },
+      {
+        "name": "ietf-netconf-acm",
+        "revision": "2018-02-14",
+        "namespace": "urn:ietf:params:xml:ns:yang:ietf-netconf-acm",
+        "conformance-type": "implement",
+        "schema": "https://raw.githubusercontent.com/YangModels/yang/master/standard/ietf/RFC/ietf-netconf-acm.yang"
+      },
+      {
+        "name": "ietf-restconf",
+        "revision": "2017-01-26",
+        "namespace": "urn:ietf:params:xml:ns:yang:ietf-restconf",
+        "conformance-type": "implement",
+        "schema": "https://raw.githubusercontent.com/YangModels/yang/master/standard/ietf/RFC/ietf-restconf.yang"
+      },
+      {
+        "name": "ietf-subscribed-notifications",
+        "revision": "2019-09-09",
+        "namespace": "urn:ietf:params:xml:ns:yang:ietf-subscribed-notifications",
+        "conformance-type": "implement",
+        "schema": "https://raw.githubusercontent.com/YangModels/yang/master/standard/ietf/RFC/ietf-subscribed-notifications.yang",
+        "feature": [ "configured", "xpath" ]
+      },
+      {
+        "name": "ietf-yang-library",
+        "revision": "2019-01-04",
+        "namespace": "urn:ietf:params:xml:ns:yang:ietf-yang-library",
+        "conformance-type": "implement",
+        "schema": "https://raw.githubusercontent.com/YangModels/yang/master/standard/ietf/RFC/ietf-yang-library.yang"
+      },
+      {
+        "name": "ietf-yang-push",
+        "revision": "2020-10-22",
+        "namespace": "urn:ietf:params:xml:ns:yang:ietf-yang-push",
+        "conformance-type": "implement",
+        "schema": "https://raw.githubusercontent.com/YangModels/yang/master/standard/ietf/RFC/ietf-yang-push.yang",
+        "feature": [ "on-change" ]
+      }
+    ]
+  }
+}

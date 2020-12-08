@@ -1,0 +1,19 @@
+{
+  "ietf-netconf-acm:nacm": {
+    "enable-nacm":false
+  },
+  "ietf-mnat:egress-global-joined": {
+    "watcher": []
+  },
+  "ietf-mnat:ingress-watching": {
+    "watcher": []
+  },
+  "ietf-subscribed-notifications:filters": {
+    "stream-filter": [
+      {
+        "name": "ietf-mnat:assignment-updates",
+        "stream-xpath-filter": "/ietf-mnat:assigned-channels"
+      }
+    ]
+  }
+}

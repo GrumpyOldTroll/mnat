@@ -1,0 +1,26 @@
+{
+  "group-pool": {
+    "ranges": [
+      {
+        "range": "239.192.0.0/14",
+        "exclude": [
+          "239.195.255.0/24"
+        ],
+        "note": "Organization-local scope, see RFC 2365 section 8 (BCP 23)"
+      },
+      {
+        "range": "234.10.0.0/16",
+        "note": "Unicast prefix with private unicast IP, See RFC 6034 and RFC 1918"
+      },
+      {
+        "range": "234.172.16.0/20",
+        "note": "Unicast prefix with private unicast IP, See RFC 6034 and RFC 1918"
+      },
+      {
+        "range": "234.192.168.0/24",
+        "note": "Unicast prefix with private unicast IP, See RFC 6034 and RFC 1918"
+      }
+    ],
+    "note": "RFC 3180 (GLOP) also provides a /24 in 233 to those with 16-bit ASNs, plus space from their own 234.x unicast space (RFC 6034)"
+  }
+}
