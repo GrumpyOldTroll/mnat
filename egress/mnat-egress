@@ -41,7 +41,7 @@ class EgressProtocol(H2Protocol):
 
     def join_update(self, sgs):
         logger.info('join update:\n  ' + '\n  '.join([f'{s}->{g}' for s,g in sgs]))
-        send_sgs = [{'source':str(s), 'group':str(g)} for s,g in sgs]
+        send_sgs = [{'source':str(s), 'group':str(g), 'id':str(idx)} for (s,g),idx in zip(sgs, range(len(sgs)))]
         data = json.dumps({
             'ietf-mnat:watcher': {
               'id': self.watcher_id,

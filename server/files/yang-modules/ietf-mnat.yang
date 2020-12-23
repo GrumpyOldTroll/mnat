@@ -4,10 +4,6 @@ module ietf-mnat {
   namespace "urn:ietf:params:xml:ns:yang:ietf-mnat";
   prefix mnat;
 
-  import ietf-yang-types {
-    prefix yang;
-  }
-
   import ietf-inet-types {
     prefix inet;
     reference
@@ -17,11 +13,6 @@ module ietf-mnat {
   import ietf-routing-types {
     prefix "rt-types";
     reference "RFC 8294";
-  }
-
-  import ietf-restconf {
-    prefix "rc";
-    reference "RFC 8040";
   }
 
   organization
@@ -154,6 +145,12 @@ module ietf-mnat {
            of interest to the specific watcher.";
       }
       list joined-sg {
+        key "id";
+        leaf id {
+          type string;
+          description
+            "id of the joined (S,G)";
+        }
         description
           "(S,G)s in the global address space that an egress is
            joined to.  These should get corresponding entries in
