@@ -5,6 +5,7 @@ This is a prototype for [MNAT](https://datatracker.ietf.org/doc/draft-jholland-m
  * mnat-ingress: web client that talks to mnat-server from the data ingress side (near the sender or the ingest point) and translates from the upstream global (Sg,Gg) addresses to a local network\'s (Sl,Gl) addresses downstream of the ingress, for transport within the network.
  * mnat-egress: web client that talks to mnat-server from the data egress side (near the receiver), and translates from the upstream network\'s (Sl,Gl) addresses to the global (Sg,Gg) addresses downstream of the egress, for delivering the global traffic to the receiver.
  * mnat-server: web service providing the mapping info between the local (Sl,Gl) addresses and the global (Sg,Gg) addresses.
+ * driad-ingest: a launcher of AMT gateway instances, much like the ingest-rtr from [multicast-ingest-platform](https://github.com/GrumpyOldTroll/multicast-ingest-platform), but firing off updates from edits to a joinfile (which mnat-ingress can do) rather than PIM packets.
 
 mnat-ingress can produce either an upstream join on a target interface, or can produce a "joinfile" that can be consumed by an ingest manager that launches AMT gateways based on the [multicast-ingest-platform](https://github.com/GrumpyOldTroll/multicast-ingest-platform).
 
