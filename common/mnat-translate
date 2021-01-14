@@ -236,7 +236,7 @@ def get_callback(args):
             drops += 1
 
         if now - last_msg >= timedelta(seconds=3):
-            print(f'{now}: {pkts} pkts, {drops} dropped {sent} sent')
+            print(f'{now} ({in_src}->{in_grp})=>({out_src}->{out_grp}): {pkts} pkts, {drops} dropped {sent} sent')
             last_msg = now
 
         #send_packet(iface, pkt)

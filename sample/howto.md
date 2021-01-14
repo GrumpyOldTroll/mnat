@@ -1,7 +1,10 @@
 # Intro
 
-This is a how-to guide for running [MNAT](https://datatracker.ietf.org/doc/draft-jholland-mboned-mnat/) in an example environment.
-These instructions try to capture how I ran it in the [multicast-ingest-platform's](https://github.com/GrumpyOldTroll/multicast-ingest-platform) sample network.
+The latest way to run is documented in the [top-level README](../README.md), and uses the docker images from dockerhub.
+Most likely you want that instead.
+
+However, if you want to run outside of docker, this is my scratch notes for running [MNAT](https://datatracker.ietf.org/doc/draft-jholland-mboned-mnat/) in an example environment.
+These instructions try to capture how I first ran it in the [multicast-ingest-platform's](https://github.com/GrumpyOldTroll/multicast-ingest-platform) sample network.
 Your own environment is likely different, but hopefully the parallels aren't hard.
 
 # Setup

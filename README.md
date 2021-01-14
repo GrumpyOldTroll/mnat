@@ -29,6 +29,7 @@ CLIENTCA=/home/user/ca.pem
 sudo docker run \
     --name mnat-server \
     -d --restart=unless-stopped \
+    --log-opt max-size=2m --log-opt max-file=5 \
     -p $PORT:8443/tcp \
     -v $SERVERKEY:/etc/mnat/server.key \
     -v $SERVERCERT:/etc/mnat/server.crt \
@@ -130,6 +131,7 @@ echo "" > $JOINFILE
 sudo docker run \
     --name mnat-ingress \
     --privileged --network host \
+    --log-opt max-size=2m --log-opt max-file=5 \
     -v $JOINFILE:/var/run/mnat/ingress-joined.sgs \
     -v $SERVERCERT:/etc/mnat/ca.pem \
     -d --restart=unless-stopped \
@@ -188,6 +190,7 @@ JOINFILE=/home/user/ingress-joined.sgs
 sudo docker run \
     --name driad-mgr \
     --privileged --network host \
+    --log-opt max-size=2m --log-opt max-file=5 \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v /var/run/smcroute.sock:/var/run/smcroute.sock \
     -v $(dirname $JOINFILE):/var/run/ingest/ \
@@ -238,6 +241,7 @@ SERVERCERT=/home/user/ca.pem
 sudo docker run \
     --name mnat-egress \
     --privileged --network host \
+    --log-opt max-size=2m --log-opt max-file=5 \
     -v $SERVERCERT:/etc/mnat/ca.pem \
     -v /var/run/smcroute.sock:/var/run/smcroute.sock \
     -d --restart=unless-stopped \
