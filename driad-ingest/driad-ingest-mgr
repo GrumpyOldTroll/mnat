@@ -395,7 +395,12 @@ ingest-gw-18.144.22.247
         nwname = mcast_nwname
         contname = 'ingest-gw-%s' % (relay_ip.exploded)
         imagename = 'grumpyoldtroll/amtgw:latest'
-        cmd = [dkr_cmd, 'create', '--rm', '--name', contname, '--privileged', '--network', amt_bridge_nwname, imagename, str(relay_ip)]
+        cmd = [dkr_cmd, 'create', '--rm',
+                '--name', contname,
+                '--privileged',
+                '--log-opt', 'max-size=2m', '--log-opt', 'max-file=5',
+                '--network', amt_bridge_nwname,
+                imagename, str(relay_ip)]
         logger.info('running: %s' % (' '.join(cmd)))
         launch_p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
         out, err = launch_p.communicate(cmd)

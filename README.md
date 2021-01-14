@@ -34,7 +34,7 @@ sudo docker run \
     -v $SERVERKEY:/etc/mnat/server.key \
     -v $SERVERCERT:/etc/mnat/server.crt \
     -v $CLIENTCA:/etc/mnat/clientca.pem \
-    grumpyoldtroll/mnat-server:0.0.2
+    grumpyoldtroll/mnat-server:0.0.3
 ~~~
 
 This is a docker container that provides an H2 interface.
@@ -135,7 +135,7 @@ sudo docker run \
     -v $JOINFILE:/var/run/mnat/ingress-joined.sgs \
     -v $SERVERCERT:/etc/mnat/ca.pem \
     -d --restart=no --rm \
-    grumpyoldtroll/mnat-ingress:0.0.2 \
+    grumpyoldtroll/mnat-ingress:0.0.3 \
       --upstream-interface $INPUT --downstream-interface $OUTPUT \
       --server $SERVER --port $PORT -v
 ~~~
@@ -195,7 +195,7 @@ sudo docker run \
     -v /var/run/smcroute.sock:/var/run/smcroute.sock \
     -v $(dirname $JOINFILE):/var/run/ingest/ \
     -d --restart=unless-stopped \
-    grumpyoldtroll/driad-ingest:0.0.2 \
+    grumpyoldtroll/driad-ingest:0.0.3 \
       --amt amt-bridge \
       --native mcast-native-ingest \
       --interface $INPUT \
@@ -245,7 +245,7 @@ sudo docker run \
     -v $SERVERCERT:/etc/mnat/ca.pem \
     -v /var/run/smcroute.sock:/var/run/smcroute.sock \
     -d --restart=unless-stopped \
-    grumpyoldtroll/mnat-egress:0.0.2 \
+    grumpyoldtroll/mnat-egress:0.0.3 \
       --upstream-interface $INPUT --downstream-interface $OUTPUT \
       --server $SERVER --port $PORT -v
 ~~~

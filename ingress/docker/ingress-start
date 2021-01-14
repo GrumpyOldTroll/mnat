@@ -3,6 +3,7 @@
 import argparse
 import subprocess
 from os.path import isfile
+import os
 import sys
 import time
 import signal
@@ -68,6 +69,8 @@ specific paths by default if they are present.  This happens with:
         ingress_cmd.extend([
             '--cert', clientcert,
         ])
+
+    os.environ["PYTHONUNBUFFERED"] = "1"
 
     ingress_p = subprocess.Popen(ingress_cmd)
 

@@ -131,6 +131,7 @@ draft-jholland-mboned-mnat.
     logger = get_logger('mnat', args.verbose)
 
     protocol = EgressProtocol(args.server, args.port, logger, args.cert, args.cacert)
+    protocol.verbose = args.verbose
 
     CONTROL = args.control_file
     watch_dir = dirname(abspath(CONTROL))

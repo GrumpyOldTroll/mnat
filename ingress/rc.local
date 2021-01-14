@@ -50,7 +50,7 @@ docker run \
     -v $JOINFILE:/var/run/mnat/ingress-joined.sgs \
     -v $SERVERCERT:/etc/mnat/ca.pem \
     -d --restart=no --rm \
-    grumpyoldtroll/mnat-ingress:0.0.2 \
+    grumpyoldtroll/mnat-ingress:0.0.3 \
       --upstream-interface $INPUT --downstream-interface $OUTPUT \
       --server $SERVER --port $PORT -v
 

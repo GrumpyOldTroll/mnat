@@ -3,6 +3,7 @@
 import argparse
 import subprocess
 from os.path import isfile
+import os
 import sys
 import time
 import signal
@@ -78,8 +79,10 @@ specific paths by default if they are present.  This happens with:
             '--cert', clientcert,
         ])
 
-    igmp_p = subprocess.Popen(igmp_cmd)
+    os.environ["PYTHONUNBUFFERED"] = "1"
+
     egress_p = subprocess.Popen(egress_cmd)
+    igmp_p = subprocess.Popen(igmp_cmd)
 
     igmp_ret, egress_ret = None, None
     while igmp_ret is None and egress_ret is None:

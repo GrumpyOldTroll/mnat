@@ -143,7 +143,8 @@ class TranslateManager(object):
             grp_in = self.mapping.local.group
 
         self.logger.info(f'starting translator for {self.mapping}')
-        cmd = [sys.executable, '/bin/mnat-translate',
+        cmd = ['/usr/bin/stdbuf', '-oL', '-eL',
+                sys.executable, '/bin/mnat-translate',
                 '--iface-in', self.in_int,
                 '--iface-out', self.out_int,
                 '--src-in', str(src_in),
@@ -153,6 +154,10 @@ class TranslateManager(object):
                 '--timeout', '100']
         if self.no_join:
             cmd.append('--no-join')
+        if hasattr(self, 'verbose') and self.verbose:
+            verbosity = '-'+'v'*self.verbose
+            cmd.append(verbosity)
+
         self.logger.info('launching translator: "%s"' % ' '.join(cmd))
         self.p = subprocess.Popen(cmd)
 
@@ -241,6 +246,7 @@ class H2Protocol(Protocol):
         self.out_interface = None
         self.current_mappings = dict()
         self.no_join = False
+        self.verbose = 0 # for passing to subprocesses, self-verbosity is in the logger.
 
     def start(self):
         now = datetime.now()
@@ -676,6 +682,7 @@ class H2Protocol(Protocol):
         for sg in added_sgs:
             m = mapping_dict[sg]
             self.current_mappings[sg] = TranslateManager(m, self.direction, self.in_interface, self.out_interface, self.logger, self.no_join)
+            self.current_mappings[sg].verbose = self.verbose
             self.current_mappings[sg].start()
 
     def setTranslations(self, direction, in_interface, out_interface):

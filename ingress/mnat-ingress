@@ -78,6 +78,7 @@ draft-jholland-mboned-mnat.
     logger = get_logger('mnat', args.verbose)
 
     protocol = IngressProtocol(args.server, args.port, logger, args.cert, args.cacert)
+    protocol.verbose = args.verbose
 
     protocol.setTranslations(TRANSLATE_TO_LOCAL, args.interface_in, args.interface_out)
     protocol.outfile = args.control_file
