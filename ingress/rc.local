@@ -1,0 +1,57 @@
+#!/bin/bash
+
+exec 1>/tmp/rc.local.log 2>&1
+set -x
+
+if ! ip addr show dum0 > /dev/null 2>&1; then
+	ip link add dev dum0 type veth peer name dum1
+	sleep 1
+	ip addr add 10.10.200.254/24 dev dum0
+	ip addr add 10.10.200.1/24 dev dum1
+	ip link set up dev dum0
+	ip link set up dev dum1
+	sleep 1
+fi
+
+for retry in $(seq 5); do
+	NMC=$(docker network ls | grep mcast-native-ingest)
+	if [ "$NMC" != "" ]; then
+		echo "$(date): found $NMC"
+		docker network rm mcast-native-ingest
+		sleep 1
+	else
+		echo "$(date): no mcast-native-ingest docker network found"
+	fi
+
+	if docker network create \
+	    --driver macvlan \
+	    --subnet=10.10.200.0/24 --gateway=10.10.200.1 \
+	    --opt parent=dum0 \
+	    mcast-native-ingest; then
+		break;
+	else
+		echo "$(date): failed network create, retrying..."
+		sleep 2
+	fi
+done
+
+JOINFILE=/home/user/ingress-joined.sgs
+echo "" > $JOINFILE
+INPUT=dum1
+OUTPUT=irf0
+SERVER=border-rtr.hackathon.jakeholland.net
+PORT=8443
+SERVERCERT=/home/user/ca.pem
+
+docker run \
+    --name mnat-ingress \
+    --privileged --network host \
+    --log-opt max-size=2m --log-opt max-file=5 \
+    -v $JOINFILE:/var/run/mnat/ingress-joined.sgs \
+    -v $SERVERCERT:/etc/mnat/ca.pem \
+    -d --restart=no --rm \
+    grumpyoldtroll/mnat-ingress:0.0.2 \
+      --upstream-interface $INPUT --downstream-interface $OUTPUT \
+      --server $SERVER --port $PORT -v
+
+

@@ -34,7 +34,7 @@ sudo docker run \
     -v $SERVERKEY:/etc/mnat/server.key \
     -v $SERVERCERT:/etc/mnat/server.crt \
     -v $CLIENTCA:/etc/mnat/clientca.pem \
-    grumpyoldtroll/mnat-server:0.0.1
+    grumpyoldtroll/mnat-server:0.0.2
 ~~~
 
 This is a docker container that provides an H2 interface.
@@ -100,7 +100,7 @@ sudo docker network create \
 ~~~
 
 After reboot the veth pair will generally disappear, which generally means the docker network needs to be destroyed and re-created.
-(TBD: initialization scripts to automate this properly, in conjunction with an auto-restarting mnat-ingress instance.)
+Copying the (ingress/rc.local)[ingress/rc.local] file to /etc/rc.local and editing it for the appropriate environment is the currently recommended way to support restart on reboot. (TBD: systemd service instead, or does it matter?)
 
 ##### Running the mnat-ingress instance
 
@@ -134,10 +134,10 @@ sudo docker run \
     --log-opt max-size=2m --log-opt max-file=5 \
     -v $JOINFILE:/var/run/mnat/ingress-joined.sgs \
     -v $SERVERCERT:/etc/mnat/ca.pem \
-    -d --restart=unless-stopped \
-    grumpyoldtroll/mnat-ingress:0.0.1 \
+    -d --restart=no --rm \
+    grumpyoldtroll/mnat-ingress:0.0.2 \
       --upstream-interface $INPUT --downstream-interface $OUTPUT \
-      --server $SERVER --port $PORT
+      --server $SERVER --port $PORT -v
 ~~~
 
 ##### Running driad-ingest
@@ -195,11 +195,11 @@ sudo docker run \
     -v /var/run/smcroute.sock:/var/run/smcroute.sock \
     -v $(dirname $JOINFILE):/var/run/ingest/ \
     -d --restart=unless-stopped \
-    grumpyoldtroll/driad-ingest:0.0.1 \
+    grumpyoldtroll/driad-ingest:0.0.2 \
       --amt amt-bridge \
       --native mcast-native-ingest \
       --interface $INPUT \
-      --joinfile /var/run/ingest/$(basename $JOINFILE)
+      --joinfile /var/run/ingest/$(basename $JOINFILE) -v
 ~~~
 
 ## Egress
@@ -245,8 +245,8 @@ sudo docker run \
     -v $SERVERCERT:/etc/mnat/ca.pem \
     -v /var/run/smcroute.sock:/var/run/smcroute.sock \
     -d --restart=unless-stopped \
-    grumpyoldtroll/mnat-egress:0.0.1 \
+    grumpyoldtroll/mnat-egress:0.0.2 \
       --upstream-interface $INPUT --downstream-interface $OUTPUT \
-      --server $SERVER --port $PORT
+      --server $SERVER --port $PORT -v
 ~~~
 
