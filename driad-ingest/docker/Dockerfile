@@ -17,5 +17,5 @@ RUN mkdir -p /var/run/ingest/ && touch /var/run/ingest/joined.sgs
 COPY driad-ingest/docker/driad-start /bin/driad-ingest-start
 COPY driad-ingest/driad-ingest-mgr /bin/driad-ingest-mgr
 
-ENTRYPOINT ["/bin/driad-start"]
+ENTRYPOINT ["/bin/driad-ingest-start"]
 
