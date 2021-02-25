@@ -7,11 +7,19 @@ import os
 import sys
 import time
 import signal
+from datetime import datetime
+
+stopping=False
+def stop_handler(signum, frame):
+    global stopping
+    print(f'{datetime.now()}: stopping mnat-ingress wrapper ({os.getpid()})')
+    stopping = True
 
 def main(args_in):
+    global stopping
     parser = argparse.ArgumentParser(
             description='''
-This runs mnat-ingress in the expected docker container layout.
+This runs mnat-ingress.py in the expected docker container layout.
 
 mnat-ingress monitors the mnat server for active mappings (which should
 come from joins reported by egresses).  This launches:
@@ -49,7 +57,7 @@ specific paths by default if they are present.  This happens with:
 
     ingress_cmd = [
             '/usr/bin/stdbuf', '-oL', '-eL', 
-            sys.executable, '/bin/mnat-ingress',
+            sys.executable, '/bin/mnat-ingress.py',
             '-i', args.upstream_interface,
             '-o', args.downstream_interface,
             '-s', args.server,
@@ -71,13 +79,20 @@ specific paths by default if they are present.  This happens with:
         ])
 
     os.environ["PYTHONUNBUFFERED"] = "1"
+    signal.signal(signal.SIGTERM, stop_handler)
+    signal.signal(signal.SIGINT, stop_handler)
+    signal.signal(signal.SIGHUP, stop_handler)
 
     ingress_p = subprocess.Popen(ingress_cmd)
 
     ingress_ret = None
-    while ingress_ret is None:
+    while ingress_ret is None and not stopping:
         ingress_ret = ingress_p.poll()
         time.sleep(1)
+
+    if ingress_ret is None:
+        ingress_p.send_signal(signal.SIGTERM)
+        ingress_p.wait(1)
 
     return ingress_ret
 

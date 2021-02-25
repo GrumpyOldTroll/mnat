@@ -12,29 +12,16 @@ If you're deploying to production behind a web server, you'll want to look at th
 For testing/local operation, generating a self-signed one looks like this:
 
 ~~~
-user@border-rtr:~$ openssl req -x509 -newkey rsa:4096 -keyout self_key.pem -out ca.pem -days 365
-Generating a RSA private key
-...
-writing new private key to 'key.pem'
-Enter PEM pass phrase:
-Verifying - Enter PEM pass phrase:
------
-You are about to be asked to enter information that will be incorporated
-into your certificate request.
-What you are about to enter is what is called a Distinguished Name or a DN.
-There are quite a few fields but you can leave some blank
-For some fields there will be a default value,
-If you enter '.', the field will be left blank.
------
-Country Name (2 letter code) [AU]:US
-State or Province Name (full name) [Some-State]:CA
-Locality Name (eg, city) []:Simi
-Organization Name (eg, company) [Internet Widgits Pty Ltd]:Jake
-Organizational Unit Name (eg, section) []:Jake test
-Common Name (e.g. server FQDN or YOUR name) []:mnat.example.com
-Email Address []:jholland@akamai.com
+PASS="SelfSignedSecurityBaby"
+openssl req -x509 -newkey rsa:4096 \
+    -keyout mnat-example-key.pem \
+    -passout "pass:${PASS}" \
+    -subj "/C=US/emailAddress=yourself@example.com/ST=Denial/L=VirtualReality/O=Lab Tests Inc./OU=Mnat Testing/CN=mnat.example.com" \
+    -out ca.pem -days 365
 
-user@border-rtr:~$ mnat/mnat-server/local-test/cert_gen/gen_server_cert.sh sample-net border-rtr.hackathon.jakeholland.net
+ln -s mnat-example-key.pem self_key.pem
+### (NB: the script below wants to use ca.pem and self_key.pem in local dir)
+mnat/server/local-test/cert_gen/gen_server_cert.sh sample-net border-rtr.hackathon.jakeholland.net
 
 Generating new private key:
 Generating RSA private key, 2048 bit long modulus (2 primes)

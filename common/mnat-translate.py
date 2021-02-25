@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from pylibpcap.pcap import sniff
 from pylibpcap import send_packet
 import socket
+import os
 
 pkts = 0
 sent = 0
@@ -250,6 +251,7 @@ stopping=False
 last_refreshed = datetime.now()
 def stop_handler(signum, frame):
     global stopping
+    print(f'{datetime.now()}: stopping mnat-translate ({os.getpid()})')
     stopping = True
 
 def refresh_handler(signum, frame):
@@ -280,8 +282,12 @@ UDP packet IPs are converted for from_src->from_dst seen on from_interface to to
     args = parser.parse_args(args_in[1:])
     filter_str = f'udp and src {args.src_in} and dst {args.grp_in}'
 
+    os.environ["PYTHONUNBUFFERED"] = "1"
+    print(f'starting mnat-translate ({os.getpid()})')
+
     signal.signal(signal.SIGTERM, stop_handler)
     signal.signal(signal.SIGINT, stop_handler)
+    signal.signal(signal.SIGHUP, stop_handler)
     signal.signal(signal.SIGUSR1, refresh_handler)
 
     dead_delay = None
@@ -295,7 +301,7 @@ UDP packet IPs are converted for from_src->from_dst seen on from_interface to to
 
     '''
     while not stopping:
-        sniff(prn=prn, filter=filter_str, iface=args.iface_in, store=0, monitor=True, timeout=3)
+        sniff(prn=prn, filter=filter_str, iface=args.iface_in, store=0, monitor=True, timeout=2)
 
         if dead_delay and datetime.now() - last_refreshed > dead_delay:
             print('shutting down by timeout (no SIGUSR1 received in {dead_delay}')
@@ -331,17 +337,36 @@ class StayJoined(object):
         self.iface = iface
         self.src = src
         self.grp = grp
+        self.p = None
 
     def leave(self):
-        cmd = ['/usr/sbin/smcroutectl',
-                'leave', self.iface, str(self.src), str(self.grp)]
-        res = subprocess.run(cmd)
+        self.p.signal(signal.SIGINT)
+        print(f'leaving {self.src}->{self.grp}')
+        try:
+          ret = self.p.wait(timeout=3)
+          print(f'left {self.src}->{self.grp}')
+        except subprocess.TimeoutExpired:
+          print(f'hard kill for {self.src}->{self.grp}')
+          self.p.kill()
+
+          self.p = None
 
 def do_join(iface, src, grp):
-    cmd = ['/usr/sbin/smcroutectl',
-            'join', iface, str(src), str(grp)]
-    res = subprocess.run(cmd)
-    return StayJoined(iface, src, grp)
+    sj = StayJoined(iface, src, grp)
+    # TBD: maybe add a "join only" mode for mcrx-check that doesn't try
+    # to receive, only does the join? --jake 2021-02-06
+    # for now i join and listen, but just count packets.  hopefully not
+    # harmful to receive and ignore if someone is sending on this port.
+    cmd = ['/usr/bin/mcrx-check',
+            '-i', iface,
+            '-s', str(src),
+            '-g', str(grp),
+            '-p', '1783',  # 'Decomissioned [sic]'
+            '-d', '0'
+            '-c', '0']
+    sj.p = subprocess.Popen(cmd)
+    print(f'started {cmd}: {sj.p.pid}')
+    return sj
     
 if __name__=="__main__":
     ret = main(sys.argv)

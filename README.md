@@ -18,13 +18,15 @@ mnat-egress will listen for downstream IGMP and translate to an upstream join.
 
 To run the server in a docker container without a web server in front, you'll need to generate keys.
 The [server/README.md](server/README.md) has a section with commands and some helper scripts to do that.
-The ca.pem file will need to be copied to the ingress and egress nodes.
+The ca.pem file will need to be copied to the ingress and egress nodes unless the server cert is signed by a trusted root in their environment's default certificate authority (for instance, in `/etc/ssl/certs` in most linuxes).
 
 ~~~
 PORT=8443
 SERVERCERT=/home/user/server_sample-net.crt
 SERVERKEY=/home/user/server_sample-net.key
 CLIENTCA=/home/user/ca.pem
+POOL=/home/user/pool.json
+MNATV=0.0.4
 
 sudo docker run \
     --name mnat-server \
@@ -34,7 +36,8 @@ sudo docker run \
     -v $SERVERKEY:/etc/mnat/server.key \
     -v $SERVERCERT:/etc/mnat/server.crt \
     -v $CLIENTCA:/etc/mnat/clientca.pem \
-    grumpyoldtroll/mnat-server:0.0.3
+    -v $POOL:/etc/mnat/pool.json \
+    grumpyoldtroll/mnat-server:${MNATV}
 ~~~
 
 This is a docker container that provides an H2 interface.
@@ -46,6 +49,54 @@ nginx does provide h2 for both the backend and proxying.
 The above command runs the container with the H2 listening port exposed to receive inbound connections into a [jetconf](https://pypi.org/project/jetconf/) instance running inside the container.
 If you want to front it with nginx, please refer to the nginx setup guides for configuration instructions.
 
+### Assignment Pool
+
+The `pool.json` file used above is the input file to control the local pool of available addresses.
+The spec does not provide a standardized input here, as there may be many business constraints in different environments.
+However, this implementation tries to provide some flexibility.
+There's an example in [server/files/pool.json](server/files/pool.json) that might be OK for some networks.
+
+The file is json, and is structured like this:
+
+~~~
+{
+  "group-pool": {
+    "ranges": [
+      {
+        "group-range": "239.192.0.0/14",
+        "exclude": [
+          {
+            "group-range": "239.195.255.0/24"
+          }
+        ],
+        "source-range": "keep",
+      }
+    ],
+    "default-source-range": "10.10.10.10/32"
+  }
+}
+~~~
+
+The "group-pool" field is at the top level.
+
+It contains a "ranges" list that define range objects and a "default-source-range" field.
+If not provided, the default-source-range default value is "keep".
+
+The range objects have a "group-range" and an optional "source-range", plus an optional "exclude" list.
+
+The permitted entries from the available (S,G)s in the group-pool are chosen by a uniform random selection from the possible choices.
+(So a group-range IPv4 with a /24 would have 256 options, and if there is a source-range with a /30 there would be 256\*4 options from the extra 4 sources.)
+
+The "exclude" field excluding a range inside the given group-range.
+It must be wholly inside the parent group-range if provided, or the top-level group-range will produce a warning at the beginning of the log and be ignored.
+
+If the "source-range" is not provided, the "default-source-range" from the top "group-pool" object is used.
+It can either be a unicast IP address and prefix with the same address family as the group range, or it can have one of 2 special values: "keep" or "asm".
+"keep" means to use SSM with the original global (S,G)'s source, and "asm" means to use a (\*,G) ASM join for the local assignment.
+
+Each object also can have an optional "note" field that's unstructured text, ignored by the server.
+Other unknown values produce a warning and are ignored.
+
 ## Ingress
 
 In MNAT, an ingress node will translate traffic from globally addressed (S,G)s to locally addressed (S,G)s in accordance with the MNAT spec, based on the information it receives from the MNAT server.
@@ -55,7 +106,6 @@ It also is responsible for signaling upstream group membership using the global 
 Prerequisites to use this implementation of the mnat-ingress node:
 
  - docker  (e.g. sudo apt install docker.io)
- - smcroutectl  (e.g. sudo apt install smcroutectl)
 
 These setup instructions only work on a linux-based OS.
 
@@ -83,24 +133,53 @@ When running with an ingest container instead of with an upstream that joins, I 
 
 ~~~
 sudo bash -e -x << EOF
-/sbin/ip link add dev dum0 type veth peer name dum1
+/sbin/ip link add dev veth0 type veth peer name veth1
 sleep 1
-/sbin/ip addr add 10.10.200.254/24 dev dum0
-/sbin/ip addr add 10.10.200.1/24 dev dum1
+/sbin/ip addr add 10.10.200.254/24 dev veth0
+/sbin/ip addr add 10.10.200.1/24 dev veth1
 
-/sbin/ip link set up dev dum0
-/sbin/ip link set up dev dum1
+/sbin/ip link set up dev veth0
+/sbin/ip link set up dev veth1
 EOF
 
 sudo docker network create \
     --driver macvlan \
     --subnet=10.10.200.0/24 --gateway=10.10.200.1 \
-    --opt parent=dum0 \
+    --opt parent=veth0 \
     mcast-native-ingest
 ~~~
 
-After reboot the veth pair will generally disappear, which generally means the docker network needs to be destroyed and re-created.
-Copying the (ingress/rc.local)[ingress/rc.local] file to /etc/rc.local and editing it for the appropriate environment is the currently recommended way to support restart on reboot. (TBD: systemd service instead, or does it matter?)
+With the commands above, after reboot the veth pair will generally disappear, which generally means the docker network needs to be destroyed and re-created each reboot.
+
+To make it persistent, it's [possible](https://askubuntu.com/a/1058278) to use [netplan](https://manpages.ubuntu.com/manpages/cosmic/man5/netplan.5.html) with [systemd.netdev](https://manpages.ubuntu.com/manpages/cosmic/man5/systemd.netdev.5.html) config files, for example like these:
+
+~~~
+#/etc/systemd/network/25-veth0.netdev
+[NetDev]
+Name=veth0
+Kind=veth
+
+[Peer]
+Name=veth1
+~~~
+
+~~~
+# /etc/netplan/10-ingest-rtr-init.yaml
+network:
+  version: 2
+  ethernets:
+    veth0:
+      addresses: [10.10.200.254/24]
+    veth1:
+      addresses: [10.10.200.1/24]
+    irf0:
+      dhcp4: false
+      gateway4: 10.9.1.1
+      optional: true
+      addresses: [10.9.1.2/24]
+      nameservers:
+        addresses: [10.9.1.1]
+~~~
 
 ##### Running the mnat-ingress instance
 
@@ -113,47 +192,55 @@ The ingress will run with the host's networking, and there are several things th
  * **server** (and optionally **port**):\
    the mnat-server instance to talk to, to discover global-local address mappings
 
-Additionally, 2 files may need to be mounted into the container:
+Additionally, 3 files may need to be mounted into the container:
 
  * **/etc/mnat/ca.pem** (optional):\
    This is needed if using a self-signed cert in the server, see the instructions for mnat-server, above.
- * **/var/run/mnat/ingress-joined.sgs** (optional):\
+ * **/etc/mnat/client.pem** (optional):\
+   This is needed if the server requires client authentication.  This is a [PEM](https://tools.ietf.org/html/rfc7468) file containing a private key.
+ * **/var/run/mnat/ingress-joined.sgs** (recommended):\
+   This is a [joinfile](https://github.com/GrumpyOldTroll/multicast-ingest-platform#joinfiles) that tracks the set of currently joined global (S,G)s.  The external mounting of this file can be monitored by [driad-ingest](https://github.com/GrumpyOldTroll/multicast-ingest-platform#driad-ingest) or [cbacc](https://github.com/GrumpyOldTroll/multicast-ingest-platform#cbacc), or even by an upstream mnat-egress instance for a network segment with different constraints.  The next section describes passing it to a driad-ingest instance.
 
 ~~~
-INPUT=dum1
-OUTPUT=irf0
+IFACE=irf0
 SERVER=border-rtr.hackathon.jakeholland.net
 PORT=8443
 SERVERCERT=/home/user/ca.pem
-JOINFILE=/home/user/ingress-joined.sgs
+JOINFILE=/home/user/ingress/ingress.sgs
+UPSTREAM=veth0
+INGEST=veth1 # this interface has the GATEWAY ip for the docker network
+SUBNET=10.10.200.0/24
+GATEWAY=10.10.200.1
+MNATV=0.0.4
+
 echo "" > $JOINFILE
+
+sudo docker network create --driver bridge amt-bridge
+sudo docker network create --driver macvlan \
+    --subnet=$SUBNET --gateway=$GATEWAY \
+    --opt parent=${INGEST} mnat-native-ingest
 
 sudo docker run \
     --name mnat-ingress \
+    -d --restart=unless-stopped \
     --privileged --network host \
     --log-opt max-size=2m --log-opt max-file=5 \
     -v $JOINFILE:/var/run/mnat/ingress-joined.sgs \
     -v $SERVERCERT:/etc/mnat/ca.pem \
-    -d --restart=no --rm \
-    grumpyoldtroll/mnat-ingress:0.0.3 \
-      --upstream-interface $INPUT --downstream-interface $OUTPUT \
+    grumpyoldtroll/mnat-ingress:$MNATV \
+      --upstream-interface ${UPSTREAM} --downstream-interface ${IFACE} \
       --server $SERVER --port $PORT -v
 ~~~
 
+TBD: show example for using upstream interface without joinfile for non-driad-ingest upstream.
+
 ##### Running driad-ingest
 
-The driad-ingest container monitors a joinfile (such as the one produced by the mnat-ingress instance) for changes.
-It responds to changes in the file by launching and destroying AMT gateway instances, and passing IGMP/MLD membership reports into them.
+The driad-ingest container comes from the [multicast-ingest-platform](https://github.com/GrumpyOldTroll/multicast-ingest-platform#driad-ingest) project.
 
-The AMT gateway instances are separate docker containers that open an AMT tunnel, send membership reports to the AMT relay, and produce native multicast traffic by decapsulating the AMT data packets received from the relays.
+The `/var/run/mnat/ingress-joined.sgs` provides a direct integration with the [joinfile](https://github.com/GrumpyOldTroll/multicast-ingest-platform#joinfiles) input for a [cbacc](https://github.com/GrumpyOldTroll/multicast-ingest-platform#cbacc) or [driad-ingest](https://github.com/GrumpyOldTroll/multicast-ingest-platform#driad-ingest) container (instead of using the joinfile from pimwatch, as that project outlines).
 
-So the driad-ingest container needs to be able to launch and destroy other docker containers, and to discover the location of AMT relays using DNS.
-
-The docker containers launched this way need to be able to send and receive AMT traffic (UDP port 2268) to and from AMT relays on the internet.
-
-So the driad-ingest container will run using host networking, and it will launch containers named "ingest-gw-\<sourceip\>" to connect to each different source IP needed according to its joinfile input.
-
-The network that receives the native multicast from the AMT gateways will be the one attached to the upstream interface of the mnat-ingress instance, which we created above, named `mcast-native-ingest`.
+TBD: when population count is added as output and accepted by cbacc (and ignored by driad-ingest), update the description with the ref to [how it's used](https://datatracker.ietf.org/doc/html/draft-ietf-mboned-cbacc-02#section-2.3.2).
 
 The network that the AMT gateways use to make an AMT tunnel to a relay is more flexible, and a bridge network is the recommended way for docker containers:
 
@@ -176,29 +263,24 @@ Several things also need to be mounted in the container:
 
  * **/var/run/docker.sock**\
   The docker socket to use for issuing docker commands to spawn and destroy the AMT gateways
- * **/var/run/smcroute.sock**\
-  The smcroutectl socket to use for doing joins and leaves in the upstream native network.
  * **/var/run/ingest/**\
   The directory containing the joinfile that's passed in has to be mounted as a directory.  This is because internally, the file is watched with [inotify](https://man7.org/linux/man-pages/man7/inotify.7.html), which wants to monitor the directory for changes.
 
-So the driad-ingress instance is run like this:
+So the driad-ingest instance is run like this (feeding in the same JOINFILE that mnat-ingress is updating):
 
 ~~~
-INPUT=dum1
 JOINFILE=/home/user/ingress-joined.sgs
 
 sudo docker run \
-    --name driad-mgr \
-    --privileged --network host \
+    --name driad-ingest \
+    -d --restart=unless-stopped \
+    --privileged \
     --log-opt max-size=2m --log-opt max-file=5 \
     -v /var/run/docker.sock:/var/run/docker.sock \
-    -v /var/run/smcroute.sock:/var/run/smcroute.sock \
     -v $(dirname $JOINFILE):/var/run/ingest/ \
-    -d --restart=unless-stopped \
-    grumpyoldtroll/driad-ingest:0.0.3 \
+    grumpyoldtroll/driad-ingest:0.0.6 \
       --amt amt-bridge \
-      --native mcast-native-ingest \
-      --interface $INPUT \
+      --native mnat-native-ingest \
       --joinfile /var/run/ingest/$(basename $JOINFILE) -v
 ~~~
 
@@ -212,7 +294,7 @@ The mnat-server then notifies any mnat-egress and mnat-ingress nodes that are in
 This will cause mnat-ingress nodes to join the global (S,G) upstream and forward it on the local (S,G) assigned by the mnat-server into its downstream network.
 That traffic will reach the mnat-egress, which will translate it back to the global (S,G) addressing and forward it to its downstream.
 
-The mnat-egress also maintains upstream group membership by managing its membership in the local (S,G) space with smcroutectl.
+The mnat-egress also maintains upstream group membership by managing its membership in the local (S,G) space with [mcrx-check](https://github.com/GrumpyOldTroll/libmcrx/blob/master/HOWTO.md#running-an-amt-gateway).
 
 mnat-egress needs several things passed in:
 
@@ -222,31 +304,148 @@ mnat-egress needs several things passed in:
    the interface on which globally addressed traffic should be produced in response to downstream joins
  * **server** (and optionally **port**):\
    the mnat-server instance to talk to, to discover global-local address mappings
+ * **input-file**:\
+   the input [joinfile](https://github.com/GrumpyOldTroll/multicast-ingest-platform#joinfiles) to monitor to determine the set of currently-joined (S,G)s.  This is generally updated by a downstream monitor such as igmpwatch or mcfilterwatch.
 
-Additionally, 2 need to be mounted into the container:
+Additionally, 2 files may need to be mounted into the container:
 
  * **/etc/mnat/ca.pem** (optional):\
    This is needed if using a self-signed cert in the server, see the instructions for mnat-server, above.
- * **/var/run/smcroute.sock**:\
-   This is needed in order to let smcroutectl join the local (S,G) on the upstream interface
+ * **/etc/mnat/client.pem** (optional):\
+   This is needed if the server requires client authentication.  This is a [PEM](https://tools.ietf.org/html/rfc7468) file containing a private key.
+
+There are a few different reasonable ways to run the mnat-egress, covered in the sections below.
+
+### Egress in the next-hop router
+
+If you're using the [sample-network](https://github.com/GrumpyOldTroll/multicast-ingest-platform/blob/master/sample-network/README.md) from multicast-ingest-platform, it's a fine choice to run mnat-egress in the access-rtr node.  It likewise would make good sense to run it in a home gateway.  This corresponds to a "bump-in-the-wire" deployment as described in the [MNAT spec](https://datatracker.ietf.org/doc/draft-ietf-mboned-mnat/).
+
+An external process is expected to maintain an input [joinfile](https://github.com/GrumpyOldTroll/multicast-ingest-platform#joinfiles).  The examples below show how to run it with igmpwatch in the sample-network.
+
+The 2 container together are launched like this:
 
 ~~~
 INPUT=xup0
 OUTPUT=xdn0
 SERVER=border-rtr.hackathon.jakeholland.net
 PORT=8443
-SERVERCERT=/home/user/ca.pem
+SERVERCERT=${HOME}/ca.pem
 # if you want client auth, add -v $CLIENTCERT:/etc/mnat/client.pem
-#CLIENTCERT=client.pem
+#CLIENTCERT=${HOME}client.pem
+EGJOINFILE=${HOME}/igmp-sgs/egress.sgs
+mkdir -p $(dirname ${EGJOINFILE}) && echo "" > ${EGJOINFILE}
+MNATV=0.0.4
+
 sudo docker run \
     --name mnat-egress \
+    -d --restart=unless-stopped \
     --privileged --network host \
     --log-opt max-size=2m --log-opt max-file=5 \
     -v $SERVERCERT:/etc/mnat/ca.pem \
-    -v /var/run/smcroute.sock:/var/run/smcroute.sock \
-    -d --restart=unless-stopped \
-    grumpyoldtroll/mnat-egress:0.0.3 \
+    -v $(dirname $EGJOINFILE):/var/run/egress-sgs/ \
+    grumpyoldtroll/mnat-egress:${MNATV} \
+      --input-file /var/run/egress-sgs/$(basename ${EGJOINFILE}) \
       --upstream-interface $INPUT --downstream-interface $OUTPUT \
       --server $SERVER --port $PORT -v
+
+sudo docker run \
+    --name igmpwatch \
+    -d --restart=unless-stopped \
+    --privileged --network host \
+    --log-opt max-size=2m --log-opt max-file=5 \
+    -v $EGJOINFILE:/var/run/mnat/$(basename ${EGJOINFILE}) \
+    grumpyoldtroll/igmpwatch:${MNATV} \
+      --output-file /var/run/mnat/$(basename ${EGJOINFILE}) \
+      --interface ${OUTPUT} \
+       -v
+~~~
+
+### Egress in the receiver device
+
+If you don't want to deploy the mnat-egress in the next-hop router, it's also possible to run in the receiving device instead, emulating a sort of OS-integrated bump in the wire deployment.
+
+This deployment would use a different external process from igmpwatch to update the joinfile, since it proved not simple to get the kernel to respond to an IGMP query from the same device to the interface where the join is active.
+So instead, it uses mcfilterwatch to monitor the `/proc/net/mcfilter` file maintained by the linux kernel.
+
+The 2 container together are launched like this:
+
+~~~
+INPUT=ens1
+OUTPUT=veth0
+JOININT=veth1
+SERVER=border-rtr.hackathon.jakeholland.net
+PORT=8443
+SERVERCERT=${HOME}/ca.pem
+MNATV=0.0.4
+# if you want client auth, add -v $CLIENTCERT:/etc/mnat/client.pem
+#CLIENTCERT=${HOME}client.pem
+EGJOINFILE=${HOME}/egress-sgs/egress.sgs
+mkdir -p $(dirname ${EGJOINFILE}) && echo "" > ${EGJOINFILE}
+
+sudo docker run \
+    --name mnat-egress \
+    -d --restart=unless-stopped \
+    --privileged --network host \
+    --log-opt max-size=2m --log-opt max-file=5 \
+    -v $SERVERCERT:/etc/mnat/ca.pem \
+    -v $(dirname $EGJOINFILE):/var/run/egress-sgs/ \
+    grumpyoldtroll/mnat-egress:$MNATV \
+      --input-file /var/run/egress-sgs/$(basename ${EGJOINFILE}) \
+      --upstream-interface $INPUT --downstream-interface $OUTPUT \
+      --server $SERVER --port $PORT -v
+
+sudo docker run \
+    --name mcfilter \
+    -d --restart=unless-stopped \
+    --network host \
+    --log-opt max-size=2m --log-opt max-file=5 \
+    --mount type=bind,source=$(dirname ${EGJOINFILE}),target=/etc/mcjoins/ \
+    grumpyoldtroll/mcfilter:$MNATV \
+      -v \
+      --joinfile /etc/mcjoins/$(basename ${EGJOINFILE}) \
+      --interface ${JOININT}
+~~~
+
+In this deployment, it's necessary to create a veth pair just like in the mnat-ingress, but optionally with different IPs just for telling them apart easier.
+
+It's also necessary to add a route for the sources you want to join to the interface connected to the mnat-egress instance, so that the join will be directed there.  (Also it may be necessary to add such a route for the group, for the case of something like vlc that uses the default socket behavior rather than using the libmcrx method of doing the join on the interface toward the source.)
+
+An example of how to set that up is here:
+
+~~~
+# add a file like this:
+cat | sudo tee /etc/netplan/01-mnat-egress-netcfg.yaml > /dev/null <<EOF
+# /etc/netplan/01-mnat-egress-netcfg.yaml
+network:
+  version: 2
+  ethernets:
+    veth0:
+      renderer: networkd
+      addresses: [10.10.201.2/30]
+    veth1:
+      renderer: networkd
+      addresses: [10.10.201.1/30]
+EOF
+
+# and another file like this:
+cat | sudo tee /etc/systemd/network/25-veth-b0.netdev > /dev/null <<EOF
+# /etc/systemd/network/25-veth-b0.netdev
+[NetDev]
+Name=veth0
+Kind=veth
+
+[Peer]
+Name=veth1
+EOF
+
+# and append a line to rc.local for startup setting of the route:
+cat | sudo tee -a /etc/rc.local > /dev/null <<EOF
+#!/bin/sh
+# <akamai added="$(date)" why="multicast trials">
+# source route for akamai senders for mnat-egress on-receiver:
+ip route add 23.212.185.0/24 dev veth1
+# </akamai>
+EOF
+sudo chmod +x /etc/rc.local
 ~~~
 

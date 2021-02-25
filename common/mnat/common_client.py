@@ -21,6 +21,7 @@ from datetime import datetime, timedelta
 from functools import total_ordering
 import subprocess
 import signal
+import psutil
 
 from twisted.internet import reactor, defer, task
 from twisted.internet.endpoints import connectProtocol, SSL4ClientEndpoint
@@ -144,7 +145,7 @@ class TranslateManager(object):
 
         self.logger.info(f'starting translator for {self.mapping}')
         cmd = ['/usr/bin/stdbuf', '-oL', '-eL',
-                sys.executable, '/bin/mnat-translate',
+                sys.executable, '/bin/mnat-translate.py',
                 '--iface-in', self.in_int,
                 '--iface-out', self.out_int,
                 '--src-in', str(src_in),
@@ -166,13 +167,18 @@ class TranslateManager(object):
             self.logger.info(f'stopping translator without a process: {self.mapping}')
             return
 
-        self.logger.info(f'stopping translator for {self.mapping}')
-        self.p.send_signal(signal.SIGHUP)
+        self.logger.info(f'stopping translator for {self.mapping} (pid={self.p.pid})')
+        self.p.send_signal(signal.SIGTERM)
         try:
             ret = self.p.wait(timeout=6)
-        except TimeoutExpired:
+            self.logger.info(f'wait after sigint completed')
+        except subprocess.TimeoutExpired:
             self.logger.warning(f'hard-stopping translator for {self.mapping}')
-            self.p.kill()
+            parent = psutil.Process(self.p.pid)
+            for child in parent.children(recursive=True):  # or parent.children() for recursive=False
+                child.kill()
+            parent.kill()
+
         self.p = None
 
     def check_for_update(self, mapping):

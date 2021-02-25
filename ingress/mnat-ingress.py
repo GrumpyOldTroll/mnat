@@ -82,7 +82,7 @@ draft-jholland-mboned-mnat.
 
     protocol.setTranslations(TRANSLATE_TO_LOCAL, args.interface_in, args.interface_out)
     protocol.outfile = args.control_file
-    protocol.no_join = True
+    #protocol.no_join = True
 
     protocol.start()
 

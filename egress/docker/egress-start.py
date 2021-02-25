@@ -2,35 +2,35 @@
 
 import argparse
 import subprocess
-from os.path import isfile
+from os.path import isfile, abspath
 import os
 import sys
 import time
 import signal
 
+stopping = False
+
+def stop_handler(signum, frame):
+    global stopping
+    print(f'{datetime.now()}: stopping mnat-egress.py')
+    stopping = True
+
 def main(args_in):
+    global stopping
     parser = argparse.ArgumentParser(
             description='''
-This runs mnat-igmp-monitor and mnat-egress, linked by their control file.
+This runs mnat-egress, monitoring the input file for changes.
 
-mnat-egress notifies the server about joins it learns of from igmp-monitor.
-Based on the server responses about the global-local (S,G) mappings, it
-runs:
+mnat-egress notifies the server about joins it learns of from its joinfile.
+Based on the (S,G) entries (one per line), it runs:
  - mnat-translate to translate the from upstream local to downstream global
-   - this launches smcroutectl to join the local (S,G) on the upstream
-     interface.
-
-igmp-monitor looks at the igmp traffic to determine what's joined downstream
-and notified mnat-egress by updating its control file, which mnat-egress
-monitors.
-
-If one is killed, this will kill the other and try to exit gracefully.
+   - this launches mcrx-check (from libmcrx) to join the local (S,G) on
+     the upstream interface.
 
 Since this is designed as the docker entry point, it will use docker-
 specific paths by default if they are present.  This happens with:
     - /etc/mnat/ca.pem (containing a public root cert to validate the server)
     - /etc/mnat/client.pem (containing a private cert to prove identity of this client)
-    - /var/run/mnat/igmp-monitor.sgs (shouldn't need export, but provides the set of joined (S,G)s, one per line)
 ''')
 
     parser.add_argument('-v', '--verbose', action='count', default=0)
@@ -38,26 +38,21 @@ specific paths by default if they are present.  This happens with:
     parser.add_argument('-p', '--port', help='port for h2 on server', default=443, type=int)
     parser.add_argument('-u', '--upstream-interface', help='receive interface for local network NATted traffic', required=True)
     parser.add_argument('-d', '--downstream-interface', help='transmit interface for de-NATted global traffic', required=True)
+    parser.add_argument('-f', '--input-file', required=True,
+            help='input joinfile for downstream joined (S,G)s')
 
     args = parser.parse_args(args_in[1:])
     verbosity = None
     if args.verbose:
         verbosity = '-'+'v'*args.verbose
 
-    control='/var/run/mnat/igmp-monitor.sgs'
+    control=abspath(args.input_file)
     cacert ='/etc/mnat/ca.pem'
     clientcert ='/etc/mnat/client.pem'
 
-    igmp_cmd = [
-            '/usr/bin/stdbuf', '-oL', '-eL', 
-            sys.executable, '/bin/mnat-igmp-monitor',
-            '-i', args.downstream_interface,
-            '-f', control,
-        ]
-
     egress_cmd = [
             '/usr/bin/stdbuf', '-oL', '-eL', 
-            sys.executable, '/bin/mnat-egress',
+            sys.executable, '/bin/mnat-egress.py',
             '-i', args.upstream_interface,
             '-o', args.downstream_interface,
             '-s', args.server,
@@ -66,7 +61,6 @@ specific paths by default if they are present.  This happens with:
         ]
 
     if verbosity:
-        igmp_cmd.append(verbosity)
         egress_cmd.append(verbosity)
 
     if isfile(cacert):
@@ -80,20 +74,20 @@ specific paths by default if they are present.  This happens with:
         ])
 
     os.environ["PYTHONUNBUFFERED"] = "1"
+    signal.signal(signal.SIGTERM, stop_handler)
+    signal.signal(signal.SIGINT, stop_handler)
+    signal.signal(signal.SIGHUP, stop_handler)
 
     egress_p = subprocess.Popen(egress_cmd)
-    igmp_p = subprocess.Popen(igmp_cmd)
 
-    igmp_ret, egress_ret = None, None
-    while igmp_ret is None and egress_ret is None:
-        igmp_ret = igmp_p.poll()
+    egress_ret = None
+    while egress_ret is None and not stopping:
         egress_ret = egress_p.poll()
         time.sleep(1)
 
     if egress_ret is None:
-        egress_p.kill(signal.SIGTERM)
-    if igmp_ret is None:
-        igmp_p.kill(signal.SIGTERM)
+        egress_p.send_signal(signal.SIGTERM)
+        egress_p.wait(1)
 
     return 0
 

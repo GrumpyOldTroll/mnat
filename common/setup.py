@@ -7,21 +7,21 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="mnat",
-    version="0.0.1",
+    version="0.0.2",
     author="Jake Holland",
     author_email="jholland@akamai.com",
-    description="The mnat.common_client package (a sub-component, used by both mnat-ingress and mnat-egress).  It includes the mnat-translate script and the base protocol handler.",
+    description="The mnat.common_client package (a sub-component, used by both mnat-ingress and mnat-egress).  It includes the mnat-translate.py script and the base protocol handler.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/GrumpyOldTroll/mnat/common",
     packages=find_packages(),
-    scripts=['mnat-translate'],
+    scripts=['mnat-translate.py'],
     setup_requires=[
         'cython>=0.22',
         'setuptools>18.0',
         'setuptools-scm>1.5.4'
     ],
-    install_requires=['Cython','python-libpcap','h2','twisted','pyOpenSSL','service_identity'],
+    install_requires=['Cython','python-libpcap','h2','twisted','pyOpenSSL','service_identity', 'psutil'],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",

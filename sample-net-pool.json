@@ -1,0 +1,11 @@
+{
+  "group-pool": {
+    "ranges": [
+      {
+        "group-range": "239.1.1.0/29",
+        "source-range": "10.9.1.2/32"
+      }
+    ],
+    "note": "this config matches the static forwarding in https://github.com/GrumpyOldTroll/sample/border-rtr/smcroute.conf and the setup there."
+  }
+}

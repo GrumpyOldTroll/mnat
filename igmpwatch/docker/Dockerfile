@@ -8,6 +8,10 @@ RUN apt-get update && apt-get install -y \
 RUN git -c advice.detachedHead=false clone -b 0.0.2 --depth 1 https://github.com/GrumpyOldTroll/libmcrx /tmp/libmcrx
 RUN cd /tmp/libmcrx && ./autogen.sh && ./configure && make
 
+RUN DEBIAN_FRONTEND="noninteractive" apt-get install -y cmake
+RUN git clone https://github.com/GrumpyOldTroll/mcproxy /tmp/mcproxy && \
+    cd /tmp/mcproxy && cmake . && make
+
 FROM ubuntu:focal
 LABEL maintainer="jholland@akamai.com"
 
@@ -15,6 +19,10 @@ RUN apt-get update && \
   apt-get install -y \
     python3 \
     python3-pip \
+    tcpdump \
+    iproute2
+
+RUN apt-get install -y \
     libpcap-dev
 
 # note: Cython has to come before python-libpcap (separate calls).
@@ -28,14 +36,12 @@ RUN pip3 install Cython && \
     python-libpcap
 
 COPY --from=0 /tmp/libmcrx/mcrx-check /usr/bin/mcrx-check
+COPY --from=0 /tmp/mcproxy/mcproxy-bin /usr/bin/mcproxy
 
-RUN mkdir /etc/mnat
+RUN mkdir -p /var/run/mnat/ && touch /var/run/mnat/igmp-monitor.sgs && mkdir /etc/mnat
 
-COPY common/ /tmp/common/
-RUN cd /tmp/common && pip3 install .
-COPY common/mnat-translate.py /bin/mnat-translate.py
-COPY egress/mnat-egress.py /bin/mnat-egress.py
-COPY egress/docker/egress-start.py /bin/egress-start.py
+COPY igmpwatch/igmp-monitor.py /bin/igmp-monitor.py
+COPY igmpwatch/docker/igmpwatch-start.py /bin/igmpwatch-start.py
 
-ENTRYPOINT ["/bin/egress-start.py"]
+ENTRYPOINT ["/bin/igmpwatch-start.py"]
 
