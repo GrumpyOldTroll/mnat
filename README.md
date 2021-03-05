@@ -22,11 +22,12 @@ The ca.pem file will need to be copied to the ingress and egress nodes unless th
 
 ~~~
 PORT=8443
-SERVERCERT=/home/user/server_sample-net.crt
-SERVERKEY=/home/user/server_sample-net.key
-CLIENTCA=/home/user/ca.pem
-POOL=/home/user/pool.json
-MNATV=0.0.4
+SRV=${HOME}/mnat-server
+SERVERCERT=${SRV}/server_sample-net.crt
+SERVERKEY=${SRV}/server_sample-net.key
+CLIENTCA=${SRV}/ca.pem
+POOL=${SRV}/pool.json
+MNATV=0.0.5
 
 sudo docker run \
     --name mnat-server \
@@ -122,7 +123,7 @@ When running with the driad-ingest service, the mnat-ingress container will upda
 
 Those updates happen in response to changes published by the mnat-server it's connected to.
 
-The driad-ingest container can watch this file and launch new AMT gateways as needed according to [DRIAD](https://tools.ietf.org/html/rfc8777)-based discovery.
+The driad-ingest container can watch this file and launch new AMT gateways as needed according to [DRIAD](https://www.rfc-editor.org/rfc/rfc8777.html)-based discovery.
 
 However, the ingress container needs an upstream interface to receie traffic on regardless of whether it's producing upstream joins.
 This upstream interface should see native multicast traffic arriving in response to the ingress's join actions.
@@ -203,16 +204,18 @@ Additionally, 3 files may need to be mounted into the container:
 
 ~~~
 IFACE=irf0
+ING=${HOME}
 SERVER=border-rtr.hackathon.jakeholland.net
 PORT=8443
-SERVERCERT=/home/user/ca.pem
-JOINFILE=/home/user/ingress/ingress.sgs
+SERVERCERT=${ING}/ca.pem
+JOINFILE=${ING}/ingress/ingress.sgs
 UPSTREAM=veth0
 INGEST=veth1 # this interface has the GATEWAY ip for the docker network
 SUBNET=10.10.200.0/24
 GATEWAY=10.10.200.1
-MNATV=0.0.4
+MNATV=0.0.5
 
+mkdir -p $(dirname ${JOINFILE})
 echo "" > $JOINFILE
 
 sudo docker network create --driver bridge amt-bridge
@@ -334,7 +337,7 @@ SERVERCERT=${HOME}/ca.pem
 #CLIENTCERT=${HOME}client.pem
 EGJOINFILE=${HOME}/igmp-sgs/egress.sgs
 mkdir -p $(dirname ${EGJOINFILE}) && echo "" > ${EGJOINFILE}
-MNATV=0.0.4
+MNATV=0.0.5
 
 sudo docker run \
     --name mnat-egress \
@@ -376,7 +379,7 @@ JOININT=veth1
 SERVER=border-rtr.hackathon.jakeholland.net
 PORT=8443
 SERVERCERT=${HOME}/ca.pem
-MNATV=0.0.4
+MNATV=0.0.5
 # if you want client auth, add -v $CLIENTCERT:/etc/mnat/client.pem
 #CLIENTCERT=${HOME}client.pem
 EGJOINFILE=${HOME}/egress-sgs/egress.sgs

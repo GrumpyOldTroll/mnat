@@ -12,6 +12,7 @@ from pylibpcap.pcap import sniff
 from pylibpcap import send_packet
 import socket
 import os
+import random
 
 pkts = 0
 sent = 0
@@ -73,50 +74,6 @@ def get_callback(args):
     assert(in_grp.version == 4 or in_grp.version == 6)
     assert(out_grp.version == 4 or out_grp.version == 6)
 
-    # https://tools.ietf.org/html/rfc791#section-3.1
-    '''
-        0                   1                   2                   3
-    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |Version|  IHL  |Type of Service|          Total Length         |
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |         Identification        |Flags|      Fragment Offset    |
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |  Time to Live |    Protocol   |         Header Checksum       |
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                       Source Address                          |
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                    Destination Address                        |
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                    Options                    |    Padding    |
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   '''
-
-    # https://tools.ietf.org/html/rfc8200#section-3
-    '''
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |Version| Traffic Class |           Flow Label                  |
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |         Payload Length        |  Next Header  |   Hop Limit   |
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                                                               |
-   +                                                               +
-   |                                                               |
-   +                         Source Address                        +
-   |                                                               |
-   +                                                               +
-   |                                                               |
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                                                               |
-   +                                                               +
-   |                                                               |
-   +                      Destination Address                      +
-   |                                                               |
-   +                                                               +
-   |                                                               |
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   '''
-
     # UDP checksum
     # https://en.wikipedia.org/wiki/User_Datagram_Protocol#Checksum_computation
     # https://tools.ietf.org/html/rfc768
@@ -128,7 +85,7 @@ def get_callback(args):
     #     dscp+ecn to traffic class, 0 flow label, next header=udp
     # 6-to-4: hop limit to ttl, length to length (with adjustment),
     #     traffic class to dscp+ecn, protocol=udp
-    # TBD: support freagmentation for 4-to-6 and 6-to-4.  For now,
+    # TBD: support fragmentation for 4-to-6 and 6-to-4.  For now,
     # drop if there's a fragment header in 6 or MF or fragment offset
     # in 4?
     # for now, I'm only supporting input traffic that's ip 4 or 6 over
@@ -139,11 +96,33 @@ def get_callback(args):
     # --jake 2020-12
 
     if out_grp.version == 4:
+        # ip4 header to produce:
+        # https://tools.ietf.org/html/rfc791#section-3.1
+        '''
+            0                   1                   2                   3
+        0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+       |Version|  IHL  |Type of Service|          Total Length         |
+       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+       |         Identification        |Flags|      Fragment Offset    |
+       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+       |  Time to Live |    Protocol   |         Header Checksum       |
+       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+       |                       Source Address                          |
+       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+       |                    Destination Address                        |
+       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+       |                    Options                    |    Padding    |
+       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+       '''
+
         s = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, (iface+"\0").encode('utf-8'))
+        #s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, (iface+"\0").encode('utf-8'))
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, bytes(iface, 'utf-8'))
         s.connect((str(out_grp), 0))
         # s.connect((iface, socket.IPPROTO_IP, socket.PACKET_MULTICAST))
         if in_grp.version == 4:
+            # convert 4-to-4
             cksum_adjust = carry_around_add(invert_cksum(internal_checksum(in_src.packed+in_grp.packed)), internal_checksum(out_src.packed+out_grp.packed))
             addresses = out_src.packed + out_grp.packed
             def change_pkt(in_pkt):
@@ -213,16 +192,181 @@ def get_callback(args):
                     print(f'udp out check: {out_udp_cksum} from {out_pkt[udp_off+7]:02x}{out_pkt[udp_off+6]:02x} (adjust={cksum_adjust}) (ip {out_ip_cksum} on {out_pkt[11]:02x}{out_pkt[10]:02x})')
                 return out_pkt
         else:
+            # convert 6-to-4
+            cksum_adjust = carry_around_add(invert_cksum(internal_checksum(in_src.packed+in_grp.packed)), internal_checksum(out_src.packed+out_grp.packed))
+            addresses = out_src.packed + out_grp.packed
             def change_pkt(in_pkt):
-                return None
+                hoff = 0
+                if len(in_pkt) < hoff + 48:
+                    return None
+                traffic_class = ((in_pkt[hoff]&0xf)<<4)|((in_pkt[hoff+1]&0xf0)>>4)
+                hoplim = in_pkt[hoff+7]
+
+                paylen = (in_pkt[hoff+4]*256 + in_pkt[hoff+5])
+                if paylen > len(in_pkt)-40-hoff:
+                    return None
+                prot = in_pkt[hoff+6]
+                # TBD: support fragmentation and/or any extension headers?
+                # should be ok to loop to below on hoff += 40 while prot
+                # is an extension.
+                if prot != 17:
+                    return None
+
+                udp_off = hoff+40
+
+                debugging = False
+                in_udp_cksum = in_pkt[udp_off+7]*256+in_pkt[udp_off+6]
+                if in_udp_cksum:
+                    out_udp_cksum = invert_cksum(carry_around_add(cksum_adjust, invert_cksum(in_udp_cksum)))
+                    if out_udp_cksum == 0:
+                        out_udp_cksum = 0xffff
+                else:
+                    out_udp_cksum = 0
+
+                out_udp = bytes([out_udp_cksum%256, out_udp_cksum//256])
+
+                hlen=20
+                ihl = (((hlen-1)//4)+1)
+                totlen = hlen+paylen
+                ipid = random.randint(0, 0xffff)
+                prot = 17 # UDP
+                front_hdr = bytes([0x40|ihl, traffic_class, totlen//256, totlen%256,
+                    ipid//256, ipid%256, 0, 0,
+                    hoplim, prot])
+                ip_cksum = invert_cksum(carry_around_add(internal_checksum(front_hdr), internal_checksum(addresses)))
+                out_pkt = front_hdr + bytes([ip_cksum%256, ip_cksum//256]) +\
+                        addresses + in_pkt[udp_off:udp_off+6] + out_udp + \
+                        in_pkt[udp_off+8:]
+
+                return out_pkt
     else:
         s = socket.socket(socket.AF_INET6, socket.SOCK_RAW, socket.IPPROTO_RAW)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, bytes(iface, 'utf-8'))
+        s.connect((str(out_grp), 0))
+
+        # ip6 header to produce:
+        # https://tools.ietf.org/html/rfc8200#section-3
+        '''
+       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+       |Version| Traffic Class |           Flow Label                  |
+       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+       |         Payload Length        |  Next Header  |   Hop Limit   |
+       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+       |                                                               |
+       +                                                               +
+       |                                                               |
+       +                         Source Address                        +
+       |                                                               |
+       +                                                               +
+       |                                                               |
+       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+       |                                                               |
+       +                                                               +
+       |                                                               |
+       +                      Destination Address                      +
+       |                                                               |
+       +                                                               +
+       |                                                               |
+       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+       '''
+
         if in_grp.version == 4:
+            # convert 4-to-6
+            cksum_adjust = carry_around_add(invert_cksum(internal_checksum(in_src.packed+in_grp.packed)), internal_checksum(out_src.packed+out_grp.packed))
+            addresses = out_src.packed + out_grp.packed
             def change_pkt(in_pkt):
-                return None
+                # print(' '.join(['%02x'%x for x in in_pkt[:64]]))
+                if len(in_pkt) < 28:
+                    return None
+                hlen = (in_pkt[0]&0xf)*4
+                if hlen + 8 > len(in_pkt):
+                    return None
+                if hlen < 20:
+                    return None
+                plen = (in_pkt[2]*256 + in_pkt[3])
+                if plen > len(in_pkt):
+                    return None
+                prot = in_pkt[9]
+                if prot != 17:
+                    return None
+                df = ((in_pkt[6]&0x40)>>7)
+                mf = ((in_pkt[6]&0x20)>>6)
+                frag_off = ((in_pkt[6]&0x1f)*256)+(in_pkt[7])
+                if mf or frag_off:
+                    return None
+
+                udp_off = hlen
+
+                # in_ip_cksum = in_pkt[11]*256+in_pkt[10]
+                in_udp_cksum = in_pkt[udp_off+7]*256+in_pkt[udp_off+6]
+
+                if in_udp_cksum:
+                    out_udp_cksum = invert_cksum(carry_around_add(cksum_adjust, invert_cksum(in_udp_cksum)))
+                    if out_udp_cksum == 0:
+                        out_udp_cksum = 0xffff
+                else:
+                    out_udp_cksum = 0
+
+                out_udp = bytes([out_udp_cksum%256, out_udp_cksum//256])
+
+                in_tos = in_pkt[1]
+                in_ttl = in_pkt[8]
+                flow = 0
+                out0 = 0x60 | ((in_tos&0xf0)>>4)
+                out1 = ((in_tos&0xf)<<4) | ((flow&0xf0000)>>16)
+                out2 = (flow&0xff00)>>8
+                out3 = (flow&0xff)
+                out_row1 = bytes([out0, out1, out2, out3])
+
+                paylen = plen - hlen
+                hdr = 17
+                out_row2 = bytes([paylen // 256, paylen % 256, hdr, in_ttl])
+
+                out_pkt = out_row1 + out_row2 + addresses + \
+                    in_pkt[udp_off:(udp_off+6)] + out_udp + \
+                    in_pkt[udp_off+8:]
+
+                return out_pkt
         else:
+            # convert 6-to-6
             def change_pkt(in_pkt):
-                return None
+                # is it useful to have a header offset here?
+                hoff = 0
+                if len(in_pkt) < hoff + 48:
+                    return None
+                traffic_class = ((in_pkt[0]&0xf)<<4)|((in_pkt[1]&0xf0)>>4)
+                hoplim = in_pkt[7]
+                prot = in_pkt[6]
+
+                paylen = (in_pkt[4]*256 + in_pkt[5])
+                if paylen > len(in_pkt)-40-hoff:
+                    return None
+                # TBD: support fragmentation and/or any extension headers?
+                # should be ok to loop to below on hoff += 40 while prot
+                # is an extension.
+                if prot != 17:
+                    return None
+
+                udp_off = hoff+40
+
+                debugging = False
+                in_udp_cksum = in_pkt[udp_off+7]*256+in_pkt[udp_off+6]
+                if in_udp_cksum:
+                    out_udp_cksum = invert_cksum(carry_around_add(cksum_adjust, invert_cksum(in_udp_cksum)))
+                    if out_udp_cksum == 0:
+                        out_udp_cksum = 0xffff
+                else:
+                    out_udp_cksum = 0
+
+                out_udp = bytes([out_udp_cksum%256, out_udp_cksum//256])
+
+                # maybe :hoff+8?  not sure if I'm supporting extension
+                # headers what all has to change...
+                out_pkt = in_pkt[:8] + addresses + \
+                        in_pkt[udp_off:udp_off+6] + out_udp + \
+                        in_pkt[udp_off+8:]
+
+                return out_pkt
 
     def sg_monitor_callback(pkt):
         global pkts, last_msg, sent, drops

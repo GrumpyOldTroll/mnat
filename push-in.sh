@@ -7,7 +7,7 @@ set -x
 
 # jake 2020-01-14: pretty sure i'm doing this wrong, but note to self:
 # remember to update README.md and ingress/rc.local
-MNATV=0.0.4
+MNATV=0.0.5
 
 for NAME in mnat-server mnat-ingress ; do
   IMG=$(sudo docker image ls $NAME | grep latest | awk '{print $3;}')
