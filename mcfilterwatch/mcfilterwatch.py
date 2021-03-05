@@ -12,6 +12,7 @@ import os
 from os.path import abspath, isfile
 from ipaddress import ip_address
 import struct
+import stat
 
 logger = None
 
@@ -86,8 +87,15 @@ Idx Device        MCA        SRC    INC    EXC
     subprocess.Popen(['ls', '-l', out_fname]).wait()
     subprocess.Popen(['ls', '-ld', os.path.dirname(out_fname)]).wait()
 
+    # default docker running has some odd troubles with permissions, so
+    # I'm trying to force things to work or error with the mode.  Not sure
+    # why this is happening, it's strange and annoying --jake 2021-03-03
+    outmode = stat.S_IROTH|stat.S_IWOTH|stat.S_IRGRP|stat.S_IWGRP|stat.S_IRUSR|stat.S_IWUSR|stat.S_IREAD|stat.S_IWRITE
+
     if isfile(out_fname):
+        os.chmod(out_fname, outmode)
         with open(out_fname) as f:
+            f.seek(0)
             last_sgs = f.read()
     logger.info(f'sgs start as:\n{last_sgs}')
 
@@ -116,8 +124,10 @@ Idx Device        MCA        SRC    INC    EXC
         if cur_sgs != last_sgs:
             logger.info(f'sg list ({out_fname}) changed:\n{cur_sgs}')
             last_sgs = cur_sgs
-            with open(os.open(out_fname, os.O_CREAT | os.O_WRONLY, 0o666), 'w') as f:
-                f.write(cur_sgs)
+            with open(os.open(out_fname, os.O_CREAT | os.O_RDWR | os.O_TRUNC, outmode), 'w') as f:
+                f.seek(0)
+                print(cur_sgs, file=f)
+                f.close()
 
         time.sleep(0.5)
 
