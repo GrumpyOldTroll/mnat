@@ -1,16 +1,20 @@
 # Intro
 
-This is a prototype for [MNAT](https://datatracker.ietf.org/doc/draft-jholland-mboned-mnat/).  There are several distinct docker images:
+This is a prototype for [MNAT](https://datatracker.ietf.org/doc/draft-ietf-mboned-mnat/) ([video](https://www.youtube.com/watch?v=K1FS3XqqWTw&t=26m45s), [slides](https://datatracker.ietf.org/meeting/109/materials/slides-109-mboned-multicast-to-the-browser-00-00.pdf#page=7) introducing it).  There are several distinct docker images:
 
- * mnat-ingress: web client that talks to mnat-server from the data ingress side (near the sender or the ingest point) and translates from the upstream global (Sg,Gg) addresses to a local network\'s (Sl,Gl) addresses downstream of the ingress, for transport within the network.
- * mnat-egress: web client that talks to mnat-server from the data egress side (near the receiver), and translates from the upstream network\'s (Sl,Gl) addresses to the global (Sg,Gg) addresses downstream of the egress, for delivering the global traffic to the receiver.
- * mnat-server: web service providing the mapping info between the local (Sl,Gl) addresses and the global (Sg,Gg) addresses.
- * driad-ingest: a launcher of AMT gateway instances, much like the ingest-rtr from [multicast-ingest-platform](https://github.com/GrumpyOldTroll/multicast-ingest-platform), but firing off updates from edits to a joinfile (which mnat-ingress can do) rather than PIM packets.
+ * `mnat-ingress`: web client that talks to `mnat-server` from the data ingress side (near the sender or the ingest point) and translates from the upstream global (Sg,Gg) addresses to a local network\'s (Sl,Gl) addresses downstream of the ingress, for transport within the network.
+ * `mnat-egress`: web client that talks to `mnat-server` from the data egress side (near the receiver), and translates from the upstream network\'s (Sl,Gl) addresses to the global (Sg,Gg) addresses downstream of the egress, for delivering the global traffic to the receiver.
+ * `mnat-server`: web service providing the mapping info between the local (Sl,Gl) addresses and the global (Sg,Gg) addresses.
 
-mnat-ingress can produce either an upstream join on a target interface, or can produce a "joinfile" that can be consumed by an ingest manager that launches AMT gateways based on the [multicast-ingest-platform](https://github.com/GrumpyOldTroll/multicast-ingest-platform).
+mnat-ingress can produce either an upstream join on a target interface, or can produce a "joinfile" that can interface with components from the [multicast-ingest-platform](https://github.com/GrumpyOldTroll/multicast-ingest-platform):
 
-mnat-egress will listen for downstream IGMP and translate to an upstream join.
-(This would be extensible to support PIM with a separation on joinfiles the same way mnat-ingress does, so pleaset let me know if you're interested in that use case, but for now it's combined into one container.)
+ * driad-ingest: a launcher of AMT gateway instances, (this will generate and destroy amtgw instances)
+ * (optional) cbacc: This uses [CBACC](https://datatracker.ietf.org/doc/draft-ietf-mboned-cbacc/) metadata to limit the traffic permitted.
+
+mnat-egress relies on a companion app to monitor group membership and update a joinfile.  It can use any of the below options (or a custom one), depending on the location of the egress:
+
+ * `igmpwatch`: watches IGMP messages and makes corresponding changes to a joinfile
+ * `mcfilterwatch`: watches the /proc/net/mcfilter [proc file](https://tldp.org/LDP/Linux-Filesystem-Hierarchy/html/proc.html) and makes corresponding chnges to a joinfile.
 
 # Running
 
@@ -41,14 +45,11 @@ sudo docker run \
     grumpyoldtroll/mnat-server:${MNATV}
 ~~~
 
-This is a docker container that provides an H2 interface.
-In addition to being able to run directly on a listening port, it can be fronted by web servers that can use an H2 backend, for example [apache](https://httpd.apache.org/docs/trunk/mod/mod_proxy_http2.html) and [nginx](https://www.nginx.com/blog/http2-module-nginx/).
+This is a docker container that provides an [HTTP/2](https://en.wikipedia.org/wiki/HTTP/2) API.
+In addition to being able to run directly on a listening port, it can be fronted by web servers that can use an HTTP/2 backend, for example both [apache](https://httpd.apache.org/docs/trunk/mod/mod_proxy_http2.html) and [nginx](https://www.nginx.com/blog/http2-module-nginx/) have the capability to provide HTTP/2 support, both for a proxy connection to the client and for talking to the backend.
 
-However, note that at the time of this writing, mnat-ingress and mnat-egress require an H2 server, and apache only has backend support, and proxies as Http 1.1.
-nginx does provide h2 for both the backend and proxying.
-
-The above command runs the container with the H2 listening port exposed to receive inbound connections into a [jetconf](https://pypi.org/project/jetconf/) instance running inside the container.
-If you want to front it with nginx, please refer to the nginx setup guides for configuration instructions.
+The above command runs the container with the HTTP/2 listening port exposed to receive inbound connections into a [jetconf](https://pypi.org/project/jetconf/) instance running inside the container.
+If you want to front it with nginx or apache, please refer to their setup guides for configuration instructions.
 
 ### Assignment Pool
 
