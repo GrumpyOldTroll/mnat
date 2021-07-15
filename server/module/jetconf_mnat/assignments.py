@@ -230,8 +230,8 @@ class LocalPool(object):
             next_idx = (idx + 1) % self.sg_count
 
             if idx in self.assigned_idxs:
-                warning(f'generated idx {idx} hit existing assigned_idx with {assigned_idxs[idx]} and looped idx {assigned_sgs.get(assigned_idxs[idx])}')
-                unexpected_tryfails.add(idx)
+                warning(f'generated idx {idx} hit existing assigned_idx with {self.assigned_idxs[idx]} and looped idx {self.assigned_sgs.get(self.assigned_idxs[idx])}')
+                unexpected_tryfails.append(idx)
                 continue
 
             range_idx = idx
